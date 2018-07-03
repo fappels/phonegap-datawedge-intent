@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <plugin xmlns="http://apache.org/cordova/ns/plugins/1.0" 
-	id="org.limitstate.BroadcastIntentPlugin" 
-	version="0.0.5">
+	id="phonegap-datawedge-intent" 
+	version="0.0.6">
 
 	<name>Zebra TC20 Datawedge Receiver</name>
 	<description>Receives broadcast intent.</description>
@@ -21,7 +21,7 @@
 
 		<config-file target="res/xml/config.xml" parent="/*">
 			<feature name="BroadcastIntentPlugin">
-				<param name="android-package" value="org.limitstate.BroadcastIntentPlugin" />
+				<param name="android-package" value="org.limitstate.intent.BroadcastIntentPlugin" />
 			</feature>
 		</config-file>
 

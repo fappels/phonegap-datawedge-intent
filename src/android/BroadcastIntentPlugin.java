@@ -17,6 +17,9 @@ import org.apache.cordova.CallbackContext;
 import org.apache.cordova.CordovaPlugin;
 import org.apache.cordova.PluginResult;
 import org.apache.cordova.CordovaActivity;
+import org.apache.cordova.CordovaArgs;
+import org.apache.cordova.CordovaWebView;
+import org.apache.cordova.CordovaInterface;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -61,7 +64,7 @@ public class BroadcastIntentPlugin extends CordovaPlugin {
 		// Find out current DW version, if the version is 6.3 or higher then we know it support intent config
 		// Then we can send CartScan profile via intent
 		try {
-			PackageInfo pInfo = getPackageManager().getPackageInfo(DW_PKG_NAME, PackageManager.GET_META_DATA);
+			PackageInfo pInfo = cordova.getActivity().getPackageManager().getPackageInfo(DW_PKG_NAME, PackageManager.GET_META_DATA);
 			versionCurrent = pInfo.versionName;
 			Log.i(TAG, "createProfileInDW: versionCurrent=" + versionCurrent);
 
@@ -86,10 +89,10 @@ public class BroadcastIntentPlugin extends CordovaPlugin {
 		Intent i = new Intent();
 		i.setAction(ACTION);
 		i.putExtra(SOFT_SCAN_TRIGGER, START_SCANNING);
-		sendBroadcast(i);
+		this.cordova.getActivity().sendBroadcast(i);
 		return true;
 	}
-	
+
 	private BroadcastReceiver myBroadcastReceiver = new BroadcastReceiver() {
 		public void onReceive(Context context, Intent intent) {
 		    String action = intent.getAction();
@@ -109,7 +112,7 @@ public class BroadcastIntentPlugin extends CordovaPlugin {
 		    }
 		}
 	};
-	
+
 	private void sendScanResult(Intent initiatingIntent, String howDataReceived)
 	{
 		String decodedSource = initiatingIntent.getStringExtra("com.symbol.datawedge.source");
@@ -126,7 +129,7 @@ public class BroadcastIntentPlugin extends CordovaPlugin {
 		//lblScanSource.setText(decodedSource + " " + howDataReceived);
 		//lblScanData.setText(decodedData);
 		//lblScanLabelType.setText(decodedLabelType);
-		
+
 		JSONObject obj = new JSONObject();
 		try{
 			obj.put("barcode", decodedData);
@@ -136,7 +139,7 @@ public class BroadcastIntentPlugin extends CordovaPlugin {
 		}
 		sendUpdate(obj);
 	}
-	
+
 
 	private void sendUpdate(JSONObject info) {
 		pluginCallbackContext.success(info);
@@ -184,7 +187,7 @@ public class BroadcastIntentPlugin extends CordovaPlugin {
 			Intent i = new Intent();
 			i.setAction(ACTION);
 			i.putExtra(SET_CONFIG, configBundle);
-			this.sendBroadcast(i);
+			this.cordova.getActivity().sendBroadcast(i);
 		}
 
 		//TO recieve the scanned via intent, the keystroke must disabled.
@@ -208,8 +211,99 @@ public class BroadcastIntentPlugin extends CordovaPlugin {
 			Intent i = new Intent();
 			i.setAction(ACTION);
 			i.putExtra(SET_CONFIG, configBundle);
-			this.sendBroadcast(i);
+			this.cordova.getActivity().sendBroadcast(i);
 		}
 	}
 
+    //DataWedge version comparision
+    private int compareVersionString(String v1, String v2) {
+
+        try {
+
+            if (v1.equals(v2)) {
+                return 0;
+            }
+
+            if (v1.length() == 0 || v2.length() == 0) {
+                return -1;
+            }
+
+            v1 = v1.replaceAll("\\s", "");
+            v2 = v2.replaceAll("\\s", "");
+            String[] a1 = v1.split("\\.");
+            String[] a2 = v2.split("\\.");
+            List<String> l1 = Arrays.asList(a1);
+            List<String> l2 = Arrays.asList(a2);
+
+            int i = 0;
+            while (true) {
+                Double d1 = null;
+                Double d2 = null;
+
+                try{
+                    String temp1 = l1.get(i).replaceAll("[\\D]", "");
+
+                    String split1[] = l1.get(i).split("[\\D]");
+                    if(split1 != null) {
+                        temp1 = split1[0];
+                    }
+
+                    d1 = Double.parseDouble(temp1);
+                }catch(IndexOutOfBoundsException e){
+                    if(e !=null) {
+                        Log.d(TAG, "Exception: " + e.getMessage());
+                    }
+                } catch(NumberFormatException e) {
+                    if(e !=null) {
+                        Log.d(TAG, "Exception: " + e.getMessage());
+                    }
+                }
+
+                try{
+                    String temp2 = l2.get(i).replaceAll("[\\D]", "");
+
+                    String split2[] = l2.get(i).split("[\\D]");
+                    if(split2 != null) {
+                        temp2 = split2[0];
+                    }
+                    d2 = Double.parseDouble(temp2);
+                }catch(IndexOutOfBoundsException e){
+                    if(e !=null) {
+                        Log.d(TAG, "Exception: " + e.getMessage());
+                    }
+                }catch(NumberFormatException e) {
+                    if(e !=null) {
+                        Log.d(TAG, "Exception: " + e.getMessage());
+                    }
+                }
+
+                Log.d("VersionCheck", "d1==== " + d1);
+                Log.d("VersionCheck", "d2==== " + d2);
+                if (d1 != null && d2 != null) {
+                    if (d1.doubleValue() > d2.doubleValue()) {
+                        return 1;
+                    } else if (d1.doubleValue() < d2.doubleValue()) {
+                        return -1;
+                    }
+                } else if (d2 == null && d1 != null) {
+                    if (d1.doubleValue() > 0) {
+                        return 1;
+                    }
+                } else if (d1 == null && d2 != null) {
+                    if (d2.doubleValue() > 0) {
+                        return -1;
+                    }
+                } else {
+                    break;
+                }
+                i++;
+            }
+
+        } catch(Exception ex) {
+            if(ex !=null) {
+                Log.d(TAG, "Exception: " + ex.getMessage());
+            }
+        }
+        return 0;
+    }
 }
