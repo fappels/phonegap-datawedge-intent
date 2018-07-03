@@ -1,7 +1,9 @@
 package org.limitstate.intent;
 
-import android.util.Log;
+import android.app.Activity;
 
+import android.util.Log;
+import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -26,15 +28,65 @@ import android.content.ContextWrapper;
 import android.content.Intent;
 import android.content.IntentFilter;
 
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
+
+import static android.content.ContentValues.TAG;
+
 public class BroadcastIntentPlugin extends CordovaPlugin {
+	final String ACTION = "com.symbol.datawedge.api.ACTION";
+	final String SWITCH = "com.symbol.datawedge.api.SWITCH_TO_PROFILE";
+	final String CREATE_PROFILE = "com.symbol.datawedge.api.CREATE_PROFILE";
+	final String PROFILE_NAME = "PROFILE_NAME";
+	final String PROFILE_STATUS = "PROFILE_ENABLED";
+	final String CONFIG_MODE = "CONFIG_MODE";
+	final String CONFIG_MODE_UPDATE = "UPDATE";
+	final String CONFIG_MODE_CREATE = "CREATE_IF_NOT_EXIST";
+	final String SET_CONFIG = "com.symbol.datawedge.api.SET_CONFIG";
+
+	final String  SOFT_SCAN_TRIGGER = "com.symbol.datawedge.api.SOFT_SCAN_TRIGGER";
+	final String START_SCANNING = "START_SCANNING";
+
+	private final String DW_PKG_NAME = "com.symbol.datawedge";
+	private final String DW_INTENT_SUPPORT_VERSION = "6.3";
+
 	CallbackContext pluginCallbackContext = null;
-	
+
+	public void initialize(CordovaInterface cordova, CordovaWebView webView) {
+		super.initialize(cordova, webView);
+		//All the DataWedge version does not support creating the profile using the DataWedge intent API.
+		//To avoid crashes on the device, make sure to check the DtaaWedge version before creating the profile.
+		int result = -1;
+		String versionCurrent="";
+		// Find out current DW version, if the version is 6.3 or higher then we know it support intent config
+		// Then we can send CartScan profile via intent
+		try {
+			PackageInfo pInfo = getPackageManager().getPackageInfo(DW_PKG_NAME, PackageManager.GET_META_DATA);
+			versionCurrent = pInfo.versionName;
+			Log.i(TAG, "createProfileInDW: versionCurrent=" + versionCurrent);
+
+			result = compareVersionString(versionCurrent, DW_INTENT_SUPPORT_VERSION);
+			Log.i(TAG, "onCreate: result=" + result);
+		} catch (PackageManager.NameNotFoundException e1) {
+			Log.e(TAG, "onCreate: NameNotFoundException:", e1);
+		}
+
+		if (result >= 0) {
+			createDataWedgeProfile();
+		}
+	}
+
 	public boolean execute(String action, JSONArray args, CallbackContext callbackContext, Context context) throws JSONException {
 		this.pluginCallbackContext = callbackContext;
 		IntentFilter filter = new IntentFilter();
 		filter.addCategory(Intent.CATEGORY_DEFAULT);
 		filter.addAction("org.limitstate.datawedge.ACTION");
 		context.registerReceiver(myBroadcastReceiver, filter);
+
+		Intent i = new Intent();
+		i.setAction(ACTION);
+		i.putExtra(SOFT_SCAN_TRIGGER, START_SCANNING);
+		sendBroadcast(i);
 		return true;
 	}
 	
@@ -93,6 +145,71 @@ public class BroadcastIntentPlugin extends CordovaPlugin {
 			result.setKeepCallback(true);
 			this.pluginCallbackContext.sendPluginResult(result);
 		}*/
+	}
+	/**
+	 * This code demonstrates how to create the DataWedge programatically and modify the settings.
+	 * This code can be skipped if the profile is created on the DataWedge manaually and pushed to different device though MDM
+	 */
+	public void createDataWedgeProfile()
+	{
+		//Create profile if doesn't exit and update the required settings
+		{
+			Bundle configBundle = new Bundle();
+			Bundle bConfig = new Bundle();
+			Bundle bParams = new Bundle();
+			Bundle bundleApp1 = new Bundle();
+
+			bParams.putString("scanner_selection", "auto");
+			bParams.putString("intent_output_enabled", "true");
+			bParams.putString("intent_action", "org.limitstate.intent.BroadcastIntentPlugin");
+			bParams.putString("intent_category", "android.intent.category.DEFAULT");
+			bParams.putString("intent_delivery", "2");
+
+			configBundle.putString(PROFILE_NAME, "BroadcastIntentPlugin");
+			configBundle.putString(PROFILE_STATUS, "true");
+			configBundle.putString(CONFIG_MODE, CONFIG_MODE_CREATE);
+
+			bundleApp1.putString("PACKAGE_NAME", "org.limitstate.intent");
+			bundleApp1.putStringArray("ACTIVITY_LIST", new String[]{"org.limitstate.intent.BroadcastIntentPlugin"});
+
+
+			configBundle.putParcelableArray("APP_LIST", new Bundle[]{bundleApp1});
+
+			bConfig.putString("PLUGIN_NAME", "INTENT");
+			bConfig.putString("RESET_CONFIG", "false");
+
+			bConfig.putBundle("PARAM_LIST", bParams);
+			configBundle.putBundle("PLUGIN_CONFIG", bConfig);
+
+			Intent i = new Intent();
+			i.setAction(ACTION);
+			i.putExtra(SET_CONFIG, configBundle);
+			this.sendBroadcast(i);
+		}
+
+		//TO recieve the scanned via intent, the keystroke must disabled.
+		{
+			Bundle configBundle = new Bundle();
+			Bundle bConfig = new Bundle();
+			Bundle bParams = new Bundle();
+
+			bParams.putString("keystroke_output_enabled", "false");
+
+			configBundle.putString(PROFILE_NAME, "BroadcastIntentPlugin");
+			configBundle.putString(PROFILE_STATUS, "true");
+			configBundle.putString(CONFIG_MODE, CONFIG_MODE_UPDATE);
+
+			bConfig.putString("PLUGIN_NAME", "KEYSTROKE");
+			bConfig.putString("RESET_CONFIG", "false");
+
+			bConfig.putBundle("PARAM_LIST", bParams);
+			configBundle.putBundle("PLUGIN_CONFIG", bConfig);
+
+			Intent i = new Intent();
+			i.setAction(ACTION);
+			i.putExtra(SET_CONFIG, configBundle);
+			this.sendBroadcast(i);
+		}
 	}
 
 }
