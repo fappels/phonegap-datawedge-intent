@@ -47,16 +47,33 @@ public class BroadcastIntentPlugin extends CordovaPlugin {
 	final String CONFIG_MODE_CREATE = "CREATE_IF_NOT_EXIST";
 	final String SET_CONFIG = "com.symbol.datawedge.api.SET_CONFIG";
 
-	final String  SOFT_SCAN_TRIGGER = "com.symbol.datawedge.api.SOFT_SCAN_TRIGGER";
+	final String SOFT_SCAN_TRIGGER = "com.symbol.datawedge.api.SOFT_SCAN_TRIGGER";
 	final String START_SCANNING = "START_SCANNING";
+
+	final String SCAN_RESULT = "SCAN_RESULT";
+	final String MY_ACTION = "org.limitstate.intent.BroadcastIntentPlugin.SCAN_RESULT";
 
 	private final String DW_PKG_NAME = "com.symbol.datawedge";
 	private final String DW_INTENT_SUPPORT_VERSION = "6.3";
 
-	CallbackContext pluginCallbackContext = null;
+    private static final String SCAN = "scan";
 
+	CallbackContext callbackContext = null;
+	JSONArray requestArgs = null;
+	String myActivityName = null;
+	String myPackageName = null;
+
+	@Override
 	public void initialize(CordovaInterface cordova, CordovaWebView webView) {
+		Log.d(TAG, "BroadcastIntentPlugin.initialize called!");
 		super.initialize(cordova, webView);
+
+		myActivityName = cordova.getActivity().getComponentName().getClassName();
+		Log.d(TAG, "BroadcastIntentPlugin.createDataWedgeProfile myActivityName=" + myActivityName);
+
+		myPackageName = cordova.getActivity().getComponentName().getPackageName();
+		Log.d(TAG, "BroadcastIntentPlugin.createDataWedgeProfile myPackageName=" + myPackageName);
+
 		//All the DataWedge version does not support creating the profile using the DataWedge intent API.
 		//To avoid crashes on the device, make sure to check the DtaaWedge version before creating the profile.
 		int result = -1;
@@ -66,35 +83,56 @@ public class BroadcastIntentPlugin extends CordovaPlugin {
 		try {
 			PackageInfo pInfo = cordova.getActivity().getPackageManager().getPackageInfo(DW_PKG_NAME, PackageManager.GET_META_DATA);
 			versionCurrent = pInfo.versionName;
-			Log.i(TAG, "createProfileInDW: versionCurrent=" + versionCurrent);
+			Log.i(TAG, "BroadcastIntentPlugin.initialize: versionCurrent=" + versionCurrent);
 
 			result = compareVersionString(versionCurrent, DW_INTENT_SUPPORT_VERSION);
-			Log.i(TAG, "onCreate: result=" + result);
+			Log.i(TAG, "BroadcastIntentPlugin.initialize: result=" + result);
 		} catch (PackageManager.NameNotFoundException e1) {
-			Log.e(TAG, "onCreate: NameNotFoundException:", e1);
+			Log.e(TAG, "BroadcastIntentPlugin.initialize: DW_PKG_NAME=" + DW_PKG_NAME + " NameNotFoundException:", e1);
 		}
-
 		if (result >= 0) {
 			createDataWedgeProfile();
 		}
+		Log.d(TAG, "BroadcastIntentPlugin.initialize returned!");
 	}
 
-	public boolean execute(String action, JSONArray args, CallbackContext callbackContext, Context context) throws JSONException {
-		this.pluginCallbackContext = callbackContext;
-		IntentFilter filter = new IntentFilter();
-		filter.addCategory(Intent.CATEGORY_DEFAULT);
-		filter.addAction("org.limitstate.datawedge.ACTION");
-		context.registerReceiver(myBroadcastReceiver, filter);
+    @Override
+	public boolean execute(String action, JSONArray args, CallbackContext callbackContext) {
+        this.callbackContext = callbackContext;
+        this.requestArgs = args;
 
-		Intent i = new Intent();
-		i.setAction(ACTION);
-		i.putExtra(SOFT_SCAN_TRIGGER, START_SCANNING);
-		this.cordova.getActivity().sendBroadcast(i);
-		return true;
+        Log.d(TAG, "BroadcastIntentPlugin.execute called! action=" + action);
+		if (action.equals(SCAN)) {
+			try {
+				IntentFilter filter = new IntentFilter();
+				filter.addCategory(Intent.CATEGORY_DEFAULT);
+				filter.addAction(MY_ACTION);
+
+				Context context = this.cordova.getActivity().getApplicationContext();
+				context.registerReceiver(myBroadcastReceiver, filter);
+				Log.d(TAG, "BroadcastIntentPlugin.execute: receiver for action=" + MY_ACTION + " registred!");
+
+				Intent i = new Intent();
+				i.setAction(ACTION);
+				i.putExtra(SOFT_SCAN_TRIGGER, START_SCANNING);
+				this.cordova.getActivity().sendBroadcast(i);
+				Log.d(TAG, "BroadcastIntentPlugin.execute returned: SOFT_SCAN_TRIGGER, START_SCANNING sent!");
+			} catch (Exception e) {
+				Log.e(TAG, "BroadcastIntentPlugin.execute: Exception occured:" + e.getMessage());
+				e.printStackTrace();
+				sendError(e.getMessage());
+			}
+			Log.d(TAG, "BroadcastIntentPlugin.execute returned!");
+			return true;
+		} else {
+			Log.e(TAG, "BroadcastIntentPlugin.execute returned invalid action=" + action);
+			return false;
+		}
 	}
 
 	private BroadcastReceiver myBroadcastReceiver = new BroadcastReceiver() {
 		public void onReceive(Context context, Intent intent) {
+			Log.d(TAG, "BroadcastIntentPlugin.BroadcastReceiver.onReceive called!");
 		    String action = intent.getAction();
 		    Bundle b = intent.getExtras();
 		    //  This is useful for debugging to verify the format of received intents from DataWedge
@@ -102,19 +140,24 @@ public class BroadcastIntentPlugin extends CordovaPlugin {
 		    //{
 		    //    Log.v(LOG_TAG, key);
 		    //}
-		    if (action.equals("org.limitstate.datawedge.ACTION")) {
+		    if (action.equals(MY_ACTION)) {
 			//  Received a barcode scan
-			try {
-			    sendScanResult(intent, "via Broadcast");
-			} catch (Exception e) {
-			    //  Catch if the UI does not exist when we receive the broadcast... this is not designed to be a production app
-			}
+				try {
+					sendScanResult(intent, "via Broadcast");
+				} catch (Exception e) {
+					//  Catch if the UI does not exist when we receive the broadcast... this is not designed to be a production app
+					Log.e(TAG, "BroadcastReceiver.onReceive: Exception occured:" + e.getMessage());
+					e.printStackTrace();
+					sendError(e.getMessage());
+				}
 		    }
+			Log.d(TAG, "BroadcastIntentPlugin.BroadcastIntentPlugin.BroadcastReceiver.onReceive returned!");
 		}
 	};
 
 	private void sendScanResult(Intent initiatingIntent, String howDataReceived)
 	{
+		Log.d(TAG, "BroadcastIntentPlugin.sendScanResult called!");
 		String decodedSource = initiatingIntent.getStringExtra("com.symbol.datawedge.source");
 		String decodedData = initiatingIntent.getStringExtra("com.symbol.datawedge.data_string");
 		String decodedLabelType = initiatingIntent.getStringExtra("com.symbol.datawedge.label_type");
@@ -125,38 +168,53 @@ public class BroadcastIntentPlugin extends CordovaPlugin {
 		    decodedData = initiatingIntent.getStringExtra("com.motorolasolutions.emdk.datawedge.data_string");
 		    decodedLabelType = initiatingIntent.getStringExtra("com.motorolasolutions.emdk.datawedge.label_type");
 		}
-
-		//lblScanSource.setText(decodedSource + " " + howDataReceived);
-		//lblScanData.setText(decodedData);
-		//lblScanLabelType.setText(decodedLabelType);
+		Log.i(TAG, "BroadcastIntentPlugin.sendScanResult: decodedSource=" + decodedSource);
+		Log.i(TAG, "BroadcastIntentPlugin.sendScanResult: decodedLabelType=" + decodedLabelType);
+		Log.i(TAG, "BroadcastIntentPlugin.sendScanResult: decodedData=" + decodedData);
 
 		JSONObject obj = new JSONObject();
-		try{
-			obj.put("barcode", decodedData);
-			obj.put("codeType", decodedLabelType);
+		try {
+			obj.put("text", decodedData);
+			obj.put("format", decodedLabelType);
+			sendSuccess(obj);
 		} catch (Exception e) {
+			Log.e(TAG, "BroadcastIntentPlugin.sendScanResult: Exception occured:" + e.getMessage());
 			e.printStackTrace();
+			sendError(e.getMessage());
 		}
-		sendUpdate(obj);
+		Log.d(TAG, "BroadcastIntentPlugin.sendScanResult returned!");
 	}
 
 
-	private void sendUpdate(JSONObject info) {
-		pluginCallbackContext.success(info);
-	   /*if (this.pluginCallbackContext != null) {
-			PluginResult result = new PluginResult(PluginResult.Status.OK, info);
-			result.setKeepCallback(true);
-			this.pluginCallbackContext.sendPluginResult(result);
-		}*/
+	private void sendSuccess(JSONObject info) {
+		Log.d(TAG, "BroadcastIntentPlugin.sendSuccess called!");
+		try {
+			callbackContext.success(info);
+		} catch (Exception e) {
+			Log.e(TAG, "BroadcastIntentPlugin.sendSuccess: Exception occured:" + e.getMessage());
+		}
+		Log.d(TAG, "BroadcastIntentPlugin.sendSuccess returned!");
 	}
+
+	private void sendError(String error) {
+		Log.d(TAG, "BroadcastIntentPlugin.sendError called!");
+		try {
+			callbackContext.error(error);
+		} catch (Exception e) {
+			Log.e(TAG, "BroadcastIntentPlugin.sendError: Exception occured:" + e.getMessage());
+		}
+		Log.d(TAG, "BroadcastIntentPlugin.sendError returned!");
+	}
+
 	/**
 	 * This code demonstrates how to create the DataWedge programatically and modify the settings.
 	 * This code can be skipped if the profile is created on the DataWedge manaually and pushed to different device though MDM
 	 */
 	public void createDataWedgeProfile()
 	{
+		Log.d(TAG, "BroadcastIntentPlugin.createDataWedgeProfile called!");
 		//Create profile if doesn't exit and update the required settings
-		{
+		try {
 			Bundle configBundle = new Bundle();
 			Bundle bConfig = new Bundle();
 			Bundle bParams = new Bundle();
@@ -164,17 +222,16 @@ public class BroadcastIntentPlugin extends CordovaPlugin {
 
 			bParams.putString("scanner_selection", "auto");
 			bParams.putString("intent_output_enabled", "true");
-			bParams.putString("intent_action", "org.limitstate.intent.BroadcastIntentPlugin");
-			bParams.putString("intent_category", "android.intent.category.DEFAULT");
+			bParams.putString("intent_action", MY_ACTION);
+            bParams.putString("intent_category", Intent.CATEGORY_DEFAULT);
 			bParams.putString("intent_delivery", "2");
 
 			configBundle.putString(PROFILE_NAME, "BroadcastIntentPlugin");
 			configBundle.putString(PROFILE_STATUS, "true");
 			configBundle.putString(CONFIG_MODE, CONFIG_MODE_CREATE);
 
-			bundleApp1.putString("PACKAGE_NAME", "org.limitstate.intent");
-			bundleApp1.putStringArray("ACTIVITY_LIST", new String[]{"org.limitstate.intent.BroadcastIntentPlugin"});
-
+			bundleApp1.putString("PACKAGE_NAME", myPackageName);
+			bundleApp1.putStringArray("ACTIVITY_LIST", new String[]{myActivityName});
 
 			configBundle.putParcelableArray("APP_LIST", new Bundle[]{bundleApp1});
 
@@ -188,10 +245,12 @@ public class BroadcastIntentPlugin extends CordovaPlugin {
 			i.setAction(ACTION);
 			i.putExtra(SET_CONFIG, configBundle);
 			this.cordova.getActivity().sendBroadcast(i);
+		} catch (Exception e) {
+			Log.e(TAG, "BroadcastIntentPlugin.createDataWedgeProfile: Exception occured:" + e.getMessage());
 		}
 
 		//TO recieve the scanned via intent, the keystroke must disabled.
-		{
+		try {
 			Bundle configBundle = new Bundle();
 			Bundle bConfig = new Bundle();
 			Bundle bParams = new Bundle();
@@ -212,7 +271,10 @@ public class BroadcastIntentPlugin extends CordovaPlugin {
 			i.setAction(ACTION);
 			i.putExtra(SET_CONFIG, configBundle);
 			this.cordova.getActivity().sendBroadcast(i);
+		} catch (Exception e) {
+			Log.e(TAG, "BroadcastIntentPlugin.createDataWedgeProfile: Exception occured:" + e.getMessage());
 		}
+		Log.d(TAG, "BroadcastIntentPlugin.createDataWedgeProfile returned!");
 	}
 
     //DataWedge version comparision
@@ -301,7 +363,7 @@ public class BroadcastIntentPlugin extends CordovaPlugin {
 
         } catch(Exception ex) {
             if(ex !=null) {
-                Log.d(TAG, "Exception: " + ex.getMessage());
+                Log.e(TAG, "Exception: " + ex.getMessage());
             }
         }
         return 0;

@@ -2,7 +2,7 @@
 
 <plugin xmlns="http://apache.org/cordova/ns/plugins/1.0" 
 	id="phonegap-datawedge-intent" 
-	version="0.0.6">
+	version="1.0.0">
 
 	<name>Zebra TC20 Datawedge Receiver</name>
 	<description>Receives broadcast intent.</description>
