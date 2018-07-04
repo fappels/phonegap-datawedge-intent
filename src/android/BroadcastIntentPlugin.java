@@ -57,6 +57,7 @@ public class BroadcastIntentPlugin extends CordovaPlugin {
 	private final String DW_INTENT_SUPPORT_VERSION = "6.3";
 
     private static final String SCAN = "scan";
+    private static final String LISTEN = "listen";
 
 	CallbackContext callbackContext = null;
 	JSONArray requestArgs = null;
@@ -117,6 +118,22 @@ public class BroadcastIntentPlugin extends CordovaPlugin {
 				i.putExtra(SOFT_SCAN_TRIGGER, START_SCANNING);
 				this.cordova.getActivity().sendBroadcast(i);
 				Log.d(TAG, "BroadcastIntentPlugin.execute returned: SOFT_SCAN_TRIGGER, START_SCANNING sent!");
+			} catch (Exception e) {
+				Log.e(TAG, "BroadcastIntentPlugin.execute: Exception occured:" + e.getMessage());
+				e.printStackTrace();
+				sendError(e.getMessage());
+			}
+			Log.d(TAG, "BroadcastIntentPlugin.execute returned!");
+			return true;
+		} else if (action.equals(LISTEN)) {
+			try {
+				IntentFilter filter = new IntentFilter();
+				filter.addCategory(Intent.CATEGORY_DEFAULT);
+				filter.addAction(MY_ACTION);
+
+				Context context = this.cordova.getActivity().getApplicationContext();
+				context.registerReceiver(myBroadcastReceiver, filter);
+				Log.d(TAG, "BroadcastIntentPlugin.execute: receiver for action=" + MY_ACTION + " registred!");
 			} catch (Exception e) {
 				Log.e(TAG, "BroadcastIntentPlugin.execute: Exception occured:" + e.getMessage());
 				e.printStackTrace();
