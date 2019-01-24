@@ -6,6 +6,10 @@ import android.util.Log;
 import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.List;
+import android.util.Base64;
+
+import java.lang.String;
+import java.lang.System;
 
 import android.os.Build;
 import android.os.Bundle;
@@ -63,6 +67,22 @@ public class BroadcastIntentPlugin extends CordovaPlugin {
 	JSONArray requestArgs = null;
 	String myActivityName = null;
 	String myPackageName = null;
+	
+	// some specials for QR-codes --------------------------
+
+	// after the prefix comes *real* binary data (to be taken as is and to be base64 encoded)
+	// has to at least end with alphanumerics, so the QR-Code is multi-part
+
+	//private static final String kPrefixBinary = "";
+	private static final String kPrefixBinary = "#LSAD";
+
+
+	// total prefix-lenght can be more, e.g. with "#LSAD01" or "#LSAD02" for sub-types
+
+	//private static final int kPrefixLength = 0;
+	private static final int kPrefixLength = 7;
+
+	// end of specials for QR-codes ------------------------
 
 	@Override
 	public void initialize(CordovaInterface cordova, CordovaWebView webView) {
@@ -188,6 +208,21 @@ public class BroadcastIntentPlugin extends CordovaPlugin {
 		Log.i(TAG, "BroadcastIntentPlugin.sendScanResult: decodedSource=" + decodedSource);
 		Log.i(TAG, "BroadcastIntentPlugin.sendScanResult: decodedLabelType=" + decodedLabelType);
 		Log.i(TAG, "BroadcastIntentPlugin.sendScanResult: decodedData=" + decodedData);
+		if (kPrefixBinary.length() > 0 && decodedData.indexOf(kPrefixBinary) == 0 ){
+			int nTmp = decodedData.length() - kPrefixLength;
+			byte[] readBytes = initiatingIntent.getByteArrayExtra("com.symbol.datawedge.data_raw");
+			if (null == readBytes)
+			{
+				readBytes = initiatingIntent.getByteArrayExtra("com.motorolasolutions.emdk.datawedge.data_raw");
+			}
+			if (null != readBytes) {
+				byte[] tmpbuf = new byte[readBytes.lenght() - kPrefixLength];
+				System.arraycopy(readBytes, kPrefixLength, tmpbuf, 0, readBytes.lenght() - kPrefixLength);
+				decodedData.substring(0,kPrefixLength).concat(Base64.encodeToString(tmpbuf, Base64.NO_WRAP));
+				tmpbuf = null;
+				readBytes = null;
+			}
+		}
 
 		JSONObject obj = new JSONObject();
 		try {
