@@ -213,9 +213,9 @@ public class BroadcastIntentPlugin extends CordovaPlugin {
 			byte[] readBytes = initiatingIntent.getByteArrayExtra("com.symbol.datawedge.data_raw");
 			if (null == readBytes)
 			{
-				 ArrayList<Byte[]> decodeData = initiatingIntent.getParcelableArrayListExtra("com.motorolasolutions.emdk.datawedge.decode_data");
+				 ArrayList<byte[]> decodeData = initiatingIntent.getParcelableArrayListExtra("com.motorolasolutions.emdk.datawedge.decode_data");
 				 if (null != decodeData) {
-				 	readBytes = decodeData[0];
+				 	readBytes = decodeData.get(0);
 				 }
 			}
 			if (null != readBytes) {
