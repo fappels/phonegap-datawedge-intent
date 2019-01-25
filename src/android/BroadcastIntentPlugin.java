@@ -67,7 +67,7 @@ public class BroadcastIntentPlugin extends CordovaPlugin {
 	JSONArray requestArgs = null;
 	String myActivityName = null;
 	String myPackageName = null;
-	
+
 	// some specials for QR-codes --------------------------
 
 	// after the prefix comes *real* binary data (to be taken as is and to be base64 encoded)
@@ -77,7 +77,7 @@ public class BroadcastIntentPlugin extends CordovaPlugin {
 	private static final String kPrefixBinary = "#LSAD";
 
 
-	// total prefix-lenght can be more, e.g. with "#LSAD01" or "#LSAD02" for sub-types
+	// total prefix-length can be more, e.g. with "#LSAD01" or "#LSAD02" for sub-types
 
 	//private static final int kPrefixLength = 0;
 	private static final int kPrefixLength = 7;
@@ -216,8 +216,8 @@ public class BroadcastIntentPlugin extends CordovaPlugin {
 				readBytes = initiatingIntent.getByteArrayExtra("com.motorolasolutions.emdk.datawedge.data_raw");
 			}
 			if (null != readBytes) {
-				byte[] tmpbuf = new byte[readBytes.lenght - kPrefixLength];
-				System.arraycopy(readBytes, kPrefixLength, tmpbuf, 0, readBytes.lenght() - kPrefixLength);
+				byte[] tmpbuf = new byte[readBytes.length() - kPrefixLength];
+				System.arraycopy(readBytes, kPrefixLength, tmpbuf, 0, readBytes.length() - kPrefixLength);
 				decodedData.substring(0,kPrefixLength).concat(Base64.encodeToString(tmpbuf, Base64.NO_WRAP));
 				tmpbuf = null;
 				readBytes = null;
