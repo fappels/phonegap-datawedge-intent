@@ -210,15 +210,19 @@ public class BroadcastIntentPlugin extends CordovaPlugin {
 		Log.i(TAG, "BroadcastIntentPlugin.sendScanResult: decodedData=" + decodedData);
 		if (kPrefixBinary.length() > 0 && decodedData.indexOf(kPrefixBinary) == 0 ){
 			int nTmp = decodedData.length() - kPrefixLength;
-			byte[] readBytes = initiatingIntent.getByteArrayExtra("com.symbol.datawedge.data_raw");
-			if (null == readBytes)
+			byte[] readBytes = null;
+			ArrayList<byte[]> rawData =
+				(ArrayList <byte[]>) initiatingIntent.getSerializableExtra("com.symbol.datawedge.decode_data");
+			if (null == rawData)
 			{
-				 List<byte[]> decodeData = (List<byte[]>)initiatingIntent.getByteArrayExtra("com.motorolasolutions.emdk.datawedge.decode_data");
-				 if (null != decodeData) {
-				 	readBytes = decodeData.get(0);
-				 }
+				 rawData = (ArrayList <byte[]>) initiatingIntent.getSerializableExtra("com.motorolasolutions.emdk.datawedge.decode_data");
 			}
-			if (null != readBytes) {
+			if (null != rawData)
+			{
+				readBytes = rawData.get(0);
+			}
+			if (null != readBytes)
+			{
 				byte[] tmpbuf = new byte[readBytes.length - kPrefixLength];
 				System.arraycopy(readBytes, kPrefixLength, tmpbuf, 0, readBytes.length - kPrefixLength);
 				decodedData.substring(0,kPrefixLength).concat(Base64.encodeToString(tmpbuf, Base64.NO_WRAP));
