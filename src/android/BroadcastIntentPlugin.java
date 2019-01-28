@@ -225,7 +225,7 @@ public class BroadcastIntentPlugin extends CordovaPlugin {
 			{
 				byte[] tmpbuf = new byte[readBytes.length - kPrefixLength];
 				System.arraycopy(readBytes, kPrefixLength, tmpbuf, 0, readBytes.length - kPrefixLength);
-				decodedData.substring(0,kPrefixLength).concat(Base64.encodeToString(tmpbuf, Base64.NO_WRAP));
+				decodedData = decodedData.substring(0,kPrefixLength).concat(Base64.encodeToString(tmpbuf, Base64.NO_WRAP));
 				tmpbuf = null;
 				readBytes = null;
 			}
