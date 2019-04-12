@@ -2,12 +2,12 @@
 
 <plugin xmlns="http://apache.org/cordova/ns/plugins/1.0" 
 	id="phonegap-datawedge-intent" 
-	version="1.0.0">
+	version="1.0.1">
 
-	<name>Zebra TC20 Datawedge Receiver</name>
-	<description>Receives broadcast intent.</description>
+	<name>ZebraTC20BCR</name>
+	<description>Trigger and read barcodes from Zebra TC20 series build in barcode scanner.</description>
 	<license>Apache 2.0</license>
-	<keywords>cordova, zebra, tc20, intent, scanner, plugin</keywords>
+	<keywords>cordova, zebra, tc20, barcode reader, plugin</keywords>
 
 	<js-module src="www/broadcast_intent_plugin.js" name="BroadcastIntentPlugin">
 		<clobbers target="navigator.broadcast_intent_plugin" />
