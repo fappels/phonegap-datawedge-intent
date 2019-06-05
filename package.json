@@ -1,6 +1,6 @@
 {
   "name": "ZebraTC20BCR",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Trigger and read barcodes from Zebra TC20 series build in barcode scanner.",
   "cordova": {
     "id": "phonegap-datawedge-intent",

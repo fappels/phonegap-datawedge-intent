@@ -2,7 +2,7 @@
 
 <plugin xmlns="http://apache.org/cordova/ns/plugins/1.0" 
 	id="phonegap-datawedge-intent" 
-	version="1.0.1">
+	version="1.0.2">
 
 	<name>ZebraTC20BCR</name>
 	<description>Trigger and read barcodes from Zebra TC20 series build in barcode scanner.</description>

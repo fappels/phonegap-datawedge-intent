@@ -1,13 +1,12 @@
-var cordova = require('cordova');
 var exec = require('cordova/exec');
 
-var BroadcastIntentPlugin = function() {
+var BroadcastIntentPlugin = function () {
 
-  this.scan = function(success_cb, error_cb){
-    exec(success_cb, error_cb, "BroadcastIntentPlugin", "scan", []);
+  this.destroy = function (success_cb, error_cb) {
+    exec(success_cb, error_cb, "BroadcastIntentPlugin", "destroy", []);
   };
 
-  this.listen = function(success_cb, error_cb){
+  this.listen = function (success_cb, error_cb) {
     exec(success_cb, error_cb, "BroadcastIntentPlugin", "listen", []);
   };
 };

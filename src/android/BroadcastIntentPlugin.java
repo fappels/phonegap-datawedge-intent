@@ -41,6 +41,10 @@ import android.content.pm.PackageManager;
 import static android.content.ContentValues.TAG;
 
 public class BroadcastIntentPlugin extends CordovaPlugin {
+	// Debugging
+	private static final String TAG = "BroadcastIntentPlugin";
+	private static final boolean D = false;
+
 	final String ACTION = "com.symbol.datawedge.api.ACTION";
 	final String SWITCH = "com.symbol.datawedge.api.SWITCH_TO_PROFILE";
 	final String CREATE_PROFILE = "com.symbol.datawedge.api.CREATE_PROFILE";
@@ -50,21 +54,29 @@ public class BroadcastIntentPlugin extends CordovaPlugin {
 	final String CONFIG_MODE_UPDATE = "UPDATE";
 	final String CONFIG_MODE_CREATE = "CREATE_IF_NOT_EXIST";
 	final String SET_CONFIG = "com.symbol.datawedge.api.SET_CONFIG";
-
 	final String SOFT_SCAN_TRIGGER = "com.symbol.datawedge.api.SOFT_SCAN_TRIGGER";
-	final String START_SCANNING = "START_SCANNING";
-
-	final String SCAN_RESULT = "SCAN_RESULT";
 	final String MY_ACTION = "org.limitstate.intent.BroadcastIntentPlugin.SCAN_RESULT";
+
+	// BCR states
+	// Constants that indicate the current connection state
+	public static final int STATE_NONE = 0;       // we're doing nothing
+	public static final int STATE_READING = 1; //reading BCR reader
+	public static final int STATE_READ = 2; //read received BCR reader
+	public static final int STATE_ERROR = 3; // Error
+	public static final int STATE_DESTROYED = 4; // BCR reader destroyed
+	private int mState;
+
+	private boolean bCodeScanReceiverRegistered = false;
 
 	private final String DW_PKG_NAME = "com.symbol.datawedge";
 	private final String DW_INTENT_SUPPORT_VERSION = "6.3";
 
-    private static final String SCAN = "scan";
     private static final String LISTEN = "listen";
+	private static final String DESTROY = "destroy";
 
-	CallbackContext callbackContext = null;
-	JSONArray requestArgs = null;
+	// Member fields
+	private JSONObject szComData;
+
 	String myActivityName = null;
 	String myPackageName = null;
 
@@ -84,16 +96,23 @@ public class BroadcastIntentPlugin extends CordovaPlugin {
 
 	// end of specials for QR-codes ------------------------
 
+	/**
+	 * Create a BCR reader
+	 */
+	public BroadcastIntentPlugin() {
+		this.setState(STATE_NONE);
+	}
+
 	@Override
 	public void initialize(CordovaInterface cordova, CordovaWebView webView) {
-		Log.d(TAG, "BroadcastIntentPlugin.initialize called!");
+		if (D) Log.d(TAG, "BroadcastIntentPlugin.initialize called!");
 		super.initialize(cordova, webView);
 
 		myActivityName = cordova.getActivity().getComponentName().getClassName();
-		Log.d(TAG, "BroadcastIntentPlugin.createDataWedgeProfile myActivityName=" + myActivityName);
+		if (D) Log.d(TAG, "BroadcastIntentPlugin.createDataWedgeProfile myActivityName=" + myActivityName);
 
 		myPackageName = cordova.getActivity().getComponentName().getPackageName();
-		Log.d(TAG, "BroadcastIntentPlugin.createDataWedgeProfile myPackageName=" + myPackageName);
+		if (D) Log.d(TAG, "BroadcastIntentPlugin.createDataWedgeProfile myPackageName=" + myPackageName);
 
 		//All the DataWedge version does not support creating the profile using the DataWedge intent API.
 		//To avoid crashes on the device, make sure to check the DtaaWedge version before creating the profile.
@@ -114,16 +133,30 @@ public class BroadcastIntentPlugin extends CordovaPlugin {
 		if (result >= 0) {
 			createDataWedgeProfile();
 		}
-		Log.d(TAG, "BroadcastIntentPlugin.initialize returned!");
+		if (D) Log.d(TAG, "BroadcastIntentPlugin.initialize returned!");
+	}
+
+	@Override
+	public void onDestroy() {
+		this.setState(STATE_DESTROYED);
+		if ((myBroadcastReceiver != null) && this.bCodeScanReceiverRegistered) {
+			this.cordova.getActivity().unregisterReceiver(myBroadcastReceiver);
+		}
+		if(D) Log.d(TAG, "Destroyed");
+		super.onDestroy();
 	}
 
     @Override
 	public boolean execute(String action, JSONArray args, CallbackContext callbackContext) {
-        this.callbackContext = callbackContext;
-        this.requestArgs = args;
-
-        Log.d(TAG, "BroadcastIntentPlugin.execute called! action=" + action);
-		if (action.equals(SCAN)) {
+       	if (D) Log.d(TAG, "BroadcastIntentPlugin.execute called! action=" + action);
+		if (action.equals(DESTROY)) {
+			if ((myBroadcastReceiver != null)) {
+				this.cordova.getActivity().unregisterReceiver(myBroadcastReceiver);
+				this.bCodeScanReceiverRegistered = false;
+			}
+			callbackContext.success();
+			this.onDestroy();
+		} else if (action.equals(LISTEN)  && (mState != STATE_READING) ) {
 			try {
 				IntentFilter filter = new IntentFilter();
 				filter.addCategory(Intent.CATEGORY_DEFAULT);
@@ -131,70 +164,81 @@ public class BroadcastIntentPlugin extends CordovaPlugin {
 
 				Context context = this.cordova.getActivity().getApplicationContext();
 				context.registerReceiver(myBroadcastReceiver, filter);
-				Log.d(TAG, "BroadcastIntentPlugin.execute: receiver for action=" + MY_ACTION + " registred!");
+				this.bCodeScanReceiverRegistered = true;
+				this.setState(STATE_READING);
+				if (D) Log.d(TAG, "BroadcastIntentPlugin.execute: receiver for action=" + MY_ACTION + " registred!");
+				this.cordova.getThreadPool().execute(new Runnable() {
+					public void run() {
+						while (true) {
+							if (mState == STATE_READ) {
+								try {
+									PluginResult result = new PluginResult(PluginResult.Status.OK, szComData);
+									result.setKeepCallback(true);
+									callbackContext.sendPluginResult(result);
+									mState = STATE_READING;
 
-				Intent i = new Intent();
-				i.setAction(ACTION);
-				i.putExtra(SOFT_SCAN_TRIGGER, START_SCANNING);
-				this.cordova.getActivity().sendBroadcast(i);
-				Log.d(TAG, "BroadcastIntentPlugin.execute returned: SOFT_SCAN_TRIGGER, START_SCANNING sent!");
+									Thread.sleep(500);
+								} catch (InterruptedException e) {
+									mState = STATE_ERROR;
+									callbackContext.error(e.getMessage());
+									break;
+								}
+							} else if ((mState == STATE_DESTROYED)||(mState == STATE_ERROR))  {
+								callbackContext.error("Not Read");
+								break;
+							} else {
+								try {
+									Thread.sleep(100);
+								} catch (InterruptedException e) {
+									callbackContext.error(e.getMessage());
+									break;
+								}
+							}
+						}
+					}
+				});
 			} catch (Exception e) {
 				Log.e(TAG, "BroadcastIntentPlugin.execute: Exception occured:" + e.getMessage());
 				e.printStackTrace();
-				sendError(e.getMessage());
+				callbackContext.error(e.getMessage());
 			}
-			Log.d(TAG, "BroadcastIntentPlugin.execute returned!");
-			return true;
-		} else if (action.equals(LISTEN)) {
-			try {
-				IntentFilter filter = new IntentFilter();
-				filter.addCategory(Intent.CATEGORY_DEFAULT);
-				filter.addAction(MY_ACTION);
-
-				Context context = this.cordova.getActivity().getApplicationContext();
-				context.registerReceiver(myBroadcastReceiver, filter);
-				Log.d(TAG, "BroadcastIntentPlugin.execute: receiver for action=" + MY_ACTION + " registred!");
-			} catch (Exception e) {
-				Log.e(TAG, "BroadcastIntentPlugin.execute: Exception occured:" + e.getMessage());
-				e.printStackTrace();
-				sendError(e.getMessage());
-			}
-			Log.d(TAG, "BroadcastIntentPlugin.execute returned!");
-			return true;
+			if (D) Log.d(TAG, "BroadcastIntentPlugin.execute returned!");
 		} else {
 			Log.e(TAG, "BroadcastIntentPlugin.execute returned invalid action=" + action);
 			return false;
 		}
+		return true;
 	}
 
 	private BroadcastReceiver myBroadcastReceiver = new BroadcastReceiver() {
 		public void onReceive(Context context, Intent intent) {
-			Log.d(TAG, "BroadcastIntentPlugin.BroadcastReceiver.onReceive called!");
+			if (D) Log.d(TAG, "BroadcastIntentPlugin.BroadcastReceiver.onReceive called!");
 		    String action = intent.getAction();
-		    Bundle b = intent.getExtras();
+		
 		    //  This is useful for debugging to verify the format of received intents from DataWedge
-		    //for (String key : b.keySet())
+			// Bundle b = intent.getExtras();
+			//for (String key : b.keySet())
 		    //{
 		    //    Log.v(LOG_TAG, key);
 		    //}
 		    if (action.equals(MY_ACTION)) {
 			//  Received a barcode scan
 				try {
-					sendScanResult(intent, "via Broadcast");
+					szComData = getScanResult(intent, "via Broadcast");
+					mState = STATE_READ;
 				} catch (Exception e) {
 					//  Catch if the UI does not exist when we receive the broadcast... this is not designed to be a production app
 					Log.e(TAG, "BroadcastReceiver.onReceive: Exception occured:" + e.getMessage());
-					e.printStackTrace();
-					sendError(e.getMessage());
+					mState = STATE_ERROR;
 				}
 		    }
-			Log.d(TAG, "BroadcastIntentPlugin.BroadcastIntentPlugin.BroadcastReceiver.onReceive returned!");
+			if (D) Log.d(TAG, "BroadcastIntentPlugin.BroadcastIntentPlugin.BroadcastReceiver.onReceive returned!");
 		}
 	};
 
-	private void sendScanResult(Intent initiatingIntent, String howDataReceived)
+	private JSONObject getScanResult(Intent initiatingIntent, String howDataReceived)
 	{
-		Log.d(TAG, "BroadcastIntentPlugin.sendScanResult called!");
+		if (D) Log.d(TAG, "BroadcastIntentPlugin.getScanResult called!");
 		String decodedSource = initiatingIntent.getStringExtra("com.symbol.datawedge.source");
 		String decodedData = initiatingIntent.getStringExtra("com.symbol.datawedge.data_string");
 		String decodedLabelType = initiatingIntent.getStringExtra("com.symbol.datawedge.label_type");
@@ -205,9 +249,9 @@ public class BroadcastIntentPlugin extends CordovaPlugin {
 		    decodedData = initiatingIntent.getStringExtra("com.motorolasolutions.emdk.datawedge.data_string");
 		    decodedLabelType = initiatingIntent.getStringExtra("com.motorolasolutions.emdk.datawedge.label_type");
 		}
-		Log.i(TAG, "BroadcastIntentPlugin.sendScanResult: decodedSource=" + decodedSource);
-		Log.i(TAG, "BroadcastIntentPlugin.sendScanResult: decodedLabelType=" + decodedLabelType);
-		Log.i(TAG, "BroadcastIntentPlugin.sendScanResult: decodedData=" + decodedData);
+		Log.i(TAG, "BroadcastIntentPlugin.getScanResult: decodedSource=" + decodedSource);
+		Log.i(TAG, "BroadcastIntentPlugin.getScanResult: decodedLabelType=" + decodedLabelType);
+		Log.i(TAG, "BroadcastIntentPlugin.getScanResult: decodedData=" + decodedData);
 		if (kPrefixBinary.length() > 0 && decodedData.indexOf(kPrefixBinary) == 0 ){
 			int nTmp = decodedData.length() - kPrefixLength;
 			byte[] readBytes = null;
@@ -235,34 +279,12 @@ public class BroadcastIntentPlugin extends CordovaPlugin {
 		try {
 			obj.put("text", decodedData);
 			obj.put("format", decodedLabelType);
-			sendSuccess(obj);
+			if(D) Log.d(TAG, "Read result = " + szComData.get("text") );
 		} catch (Exception e) {
-			Log.e(TAG, "BroadcastIntentPlugin.sendScanResult: Exception occured:" + e.getMessage());
-			e.printStackTrace();
-			sendError(e.getMessage());
+			Log.e(TAG, "BroadcastIntentPlugin.getScanResult: Exception occured:" + e.getMessage());
 		}
-		Log.d(TAG, "BroadcastIntentPlugin.sendScanResult returned!");
-	}
-
-
-	private void sendSuccess(JSONObject info) {
-		Log.d(TAG, "BroadcastIntentPlugin.sendSuccess called!");
-		try {
-			callbackContext.success(info);
-		} catch (Exception e) {
-			Log.e(TAG, "BroadcastIntentPlugin.sendSuccess: Exception occured:" + e.getMessage());
-		}
-		Log.d(TAG, "BroadcastIntentPlugin.sendSuccess returned!");
-	}
-
-	private void sendError(String error) {
-		Log.d(TAG, "BroadcastIntentPlugin.sendError called!");
-		try {
-			callbackContext.error(error);
-		} catch (Exception e) {
-			Log.e(TAG, "BroadcastIntentPlugin.sendError: Exception occured:" + e.getMessage());
-		}
-		Log.d(TAG, "BroadcastIntentPlugin.sendError returned!");
+		if (D) Log.d(TAG, "BroadcastIntentPlugin.getScanResult returned!");
+		return obj;
 	}
 
 	/**
@@ -333,7 +355,7 @@ public class BroadcastIntentPlugin extends CordovaPlugin {
 		} catch (Exception e) {
 			Log.e(TAG, "BroadcastIntentPlugin.createDataWedgeProfile: Exception occured:" + e.getMessage());
 		}
-		Log.d(TAG, "BroadcastIntentPlugin.createDataWedgeProfile returned!");
+		if (D) Log.d(TAG, "BroadcastIntentPlugin.createDataWedgeProfile returned!");
 	}
 
     //DataWedge version comparision
@@ -427,4 +449,8 @@ public class BroadcastIntentPlugin extends CordovaPlugin {
         }
         return 0;
     }
+
+	private void setState(int state) {
+		this.mState = state;
+	}
 }
