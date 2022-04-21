@@ -139,9 +139,6 @@ public class BroadcastIntentPlugin extends CordovaPlugin {
 	@Override
 	public void onDestroy() {
 		this.setState(STATE_DESTROYED);
-		if ((myBroadcastReceiver != null) && this.bCodeScanReceiverRegistered) {
-			this.cordova.getActivity().unregisterReceiver(myBroadcastReceiver);
-		}
 		if(D) Log.d(TAG, "Destroyed");
 		super.onDestroy();
 	}
@@ -150,6 +147,10 @@ public class BroadcastIntentPlugin extends CordovaPlugin {
 	public boolean execute(String action, JSONArray args, CallbackContext callbackContext) {
 		if (D) Log.d(TAG, "BroadcastIntentPlugin.execute called! action=" + action);
 		if (action.equals(DESTROY)) {
+			if ((myBroadcastReceiver != null)) {
+				this.cordova.getActivity().unregisterReceiver(myBroadcastReceiver);
+				this.bCodeScanReceiverRegistered = false;
+			}
 			callbackContext.success();
 			this.onDestroy();
 		} else if (action.equals(LISTEN)  && (mState != STATE_READING) ) {
