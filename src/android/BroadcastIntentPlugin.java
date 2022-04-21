@@ -71,7 +71,7 @@ public class BroadcastIntentPlugin extends CordovaPlugin {
 	private final String DW_PKG_NAME = "com.symbol.datawedge";
 	private final String DW_INTENT_SUPPORT_VERSION = "6.3";
 
-    private static final String LISTEN = "listen";
+	private static final String LISTEN = "listen";
 	private static final String DESTROY = "destroy";
 
 	// Member fields
@@ -146,14 +146,10 @@ public class BroadcastIntentPlugin extends CordovaPlugin {
 		super.onDestroy();
 	}
 
-    @Override
+	@Override
 	public boolean execute(String action, JSONArray args, CallbackContext callbackContext) {
-       	if (D) Log.d(TAG, "BroadcastIntentPlugin.execute called! action=" + action);
+		if (D) Log.d(TAG, "BroadcastIntentPlugin.execute called! action=" + action);
 		if (action.equals(DESTROY)) {
-			if ((myBroadcastReceiver != null)) {
-				this.cordova.getActivity().unregisterReceiver(myBroadcastReceiver);
-				this.bCodeScanReceiverRegistered = false;
-			}
 			callbackContext.success();
 			this.onDestroy();
 		} else if (action.equals(LISTEN)  && (mState != STATE_READING) ) {
@@ -213,15 +209,15 @@ public class BroadcastIntentPlugin extends CordovaPlugin {
 	private BroadcastReceiver myBroadcastReceiver = new BroadcastReceiver() {
 		public void onReceive(Context context, Intent intent) {
 			if (D) Log.d(TAG, "BroadcastIntentPlugin.BroadcastReceiver.onReceive called!");
-		    String action = intent.getAction();
+			String action = intent.getAction();
 		
-		    //  This is useful for debugging to verify the format of received intents from DataWedge
+			//  This is useful for debugging to verify the format of received intents from DataWedge
 			// Bundle b = intent.getExtras();
 			//for (String key : b.keySet())
-		    //{
-		    //    Log.v(LOG_TAG, key);
-		    //}
-		    if (action.equals(MY_ACTION)) {
+			//{
+			//    Log.v(LOG_TAG, key);
+			//}
+			if (action.equals(MY_ACTION)) {
 			//  Received a barcode scan
 				try {
 					szComData = getScanResult(intent, "via Broadcast");
@@ -231,7 +227,7 @@ public class BroadcastIntentPlugin extends CordovaPlugin {
 					Log.e(TAG, "BroadcastReceiver.onReceive: Exception occured:" + e.getMessage());
 					mState = STATE_ERROR;
 				}
-		    }
+			}
 			if (D) Log.d(TAG, "BroadcastIntentPlugin.BroadcastIntentPlugin.BroadcastReceiver.onReceive returned!");
 		}
 	};
@@ -245,9 +241,9 @@ public class BroadcastIntentPlugin extends CordovaPlugin {
 
 		if (null == decodedSource)
 		{
-		    decodedSource = initiatingIntent.getStringExtra("com.motorolasolutions.emdk.datawedge.source");
-		    decodedData = initiatingIntent.getStringExtra("com.motorolasolutions.emdk.datawedge.data_string");
-		    decodedLabelType = initiatingIntent.getStringExtra("com.motorolasolutions.emdk.datawedge.label_type");
+			decodedSource = initiatingIntent.getStringExtra("com.motorolasolutions.emdk.datawedge.source");
+			decodedData = initiatingIntent.getStringExtra("com.motorolasolutions.emdk.datawedge.data_string");
+			decodedLabelType = initiatingIntent.getStringExtra("com.motorolasolutions.emdk.datawedge.label_type");
 		}
 		Log.i(TAG, "BroadcastIntentPlugin.getScanResult: decodedSource=" + decodedSource);
 		Log.i(TAG, "BroadcastIntentPlugin.getScanResult: decodedLabelType=" + decodedLabelType);
@@ -304,7 +300,7 @@ public class BroadcastIntentPlugin extends CordovaPlugin {
 			bParams.putString("scanner_selection", "auto");
 			bParams.putString("intent_output_enabled", "true");
 			bParams.putString("intent_action", MY_ACTION);
-            bParams.putString("intent_category", Intent.CATEGORY_DEFAULT);
+			bParams.putString("intent_category", Intent.CATEGORY_DEFAULT);
 			bParams.putString("intent_delivery", "2");
 
 			configBundle.putString(PROFILE_NAME, "BroadcastIntentPlugin");
@@ -358,97 +354,97 @@ public class BroadcastIntentPlugin extends CordovaPlugin {
 		if (D) Log.d(TAG, "BroadcastIntentPlugin.createDataWedgeProfile returned!");
 	}
 
-    //DataWedge version comparision
-    private int compareVersionString(String v1, String v2) {
+	//DataWedge version comparision
+	private int compareVersionString(String v1, String v2) {
 
-        try {
+		try {
 
-            if (v1.equals(v2)) {
-                return 0;
-            }
+			if (v1.equals(v2)) {
+				return 0;
+			}
 
-            if (v1.length() == 0 || v2.length() == 0) {
-                return -1;
-            }
+			if (v1.length() == 0 || v2.length() == 0) {
+				return -1;
+			}
 
-            v1 = v1.replaceAll("\\s", "");
-            v2 = v2.replaceAll("\\s", "");
-            String[] a1 = v1.split("\\.");
-            String[] a2 = v2.split("\\.");
-            List<String> l1 = Arrays.asList(a1);
-            List<String> l2 = Arrays.asList(a2);
+			v1 = v1.replaceAll("\\s", "");
+			v2 = v2.replaceAll("\\s", "");
+			String[] a1 = v1.split("\\.");
+			String[] a2 = v2.split("\\.");
+			List<String> l1 = Arrays.asList(a1);
+			List<String> l2 = Arrays.asList(a2);
 
-            int i = 0;
-            while (true) {
-                Double d1 = null;
-                Double d2 = null;
+			int i = 0;
+			while (true) {
+				Double d1 = null;
+				Double d2 = null;
 
-                try{
-                    String temp1 = l1.get(i).replaceAll("[\\D]", "");
+				try{
+					String temp1 = l1.get(i).replaceAll("[\\D]", "");
 
-                    String split1[] = l1.get(i).split("[\\D]");
-                    if(split1 != null) {
-                        temp1 = split1[0];
-                    }
+					String split1[] = l1.get(i).split("[\\D]");
+					if(split1 != null) {
+						temp1 = split1[0];
+					}
 
-                    d1 = Double.parseDouble(temp1);
-                }catch(IndexOutOfBoundsException e){
-                    if(e !=null) {
-                        Log.d(TAG, "Exception: " + e.getMessage());
-                    }
-                } catch(NumberFormatException e) {
-                    if(e !=null) {
-                        Log.d(TAG, "Exception: " + e.getMessage());
-                    }
-                }
+					d1 = Double.parseDouble(temp1);
+				}catch(IndexOutOfBoundsException e){
+					if(e !=null) {
+						Log.d(TAG, "Exception: " + e.getMessage());
+					}
+				} catch(NumberFormatException e) {
+					if(e !=null) {
+						Log.d(TAG, "Exception: " + e.getMessage());
+					}
+				}
 
-                try{
-                    String temp2 = l2.get(i).replaceAll("[\\D]", "");
+				try{
+					String temp2 = l2.get(i).replaceAll("[\\D]", "");
 
-                    String split2[] = l2.get(i).split("[\\D]");
-                    if(split2 != null) {
-                        temp2 = split2[0];
-                    }
-                    d2 = Double.parseDouble(temp2);
-                }catch(IndexOutOfBoundsException e){
-                    if(e !=null) {
-                        Log.d(TAG, "Exception: " + e.getMessage());
-                    }
-                }catch(NumberFormatException e) {
-                    if(e !=null) {
-                        Log.d(TAG, "Exception: " + e.getMessage());
-                    }
-                }
+					String split2[] = l2.get(i).split("[\\D]");
+					if(split2 != null) {
+						temp2 = split2[0];
+					}
+					d2 = Double.parseDouble(temp2);
+				}catch(IndexOutOfBoundsException e){
+					if(e !=null) {
+						Log.d(TAG, "Exception: " + e.getMessage());
+					}
+				}catch(NumberFormatException e) {
+					if(e !=null) {
+						Log.d(TAG, "Exception: " + e.getMessage());
+					}
+				}
 
-                Log.d("VersionCheck", "d1==== " + d1);
-                Log.d("VersionCheck", "d2==== " + d2);
-                if (d1 != null && d2 != null) {
-                    if (d1.doubleValue() > d2.doubleValue()) {
-                        return 1;
-                    } else if (d1.doubleValue() < d2.doubleValue()) {
-                        return -1;
-                    }
-                } else if (d2 == null && d1 != null) {
-                    if (d1.doubleValue() > 0) {
-                        return 1;
-                    }
-                } else if (d1 == null && d2 != null) {
-                    if (d2.doubleValue() > 0) {
-                        return -1;
-                    }
-                } else {
-                    break;
-                }
-                i++;
-            }
+				Log.d("VersionCheck", "d1==== " + d1);
+				Log.d("VersionCheck", "d2==== " + d2);
+				if (d1 != null && d2 != null) {
+					if (d1.doubleValue() > d2.doubleValue()) {
+						return 1;
+					} else if (d1.doubleValue() < d2.doubleValue()) {
+						return -1;
+					}
+				} else if (d2 == null && d1 != null) {
+					if (d1.doubleValue() > 0) {
+						return 1;
+					}
+				} else if (d1 == null && d2 != null) {
+					if (d2.doubleValue() > 0) {
+						return -1;
+					}
+				} else {
+					break;
+				}
+				i++;
+			}
 
-        } catch(Exception ex) {
-            if(ex !=null) {
-                Log.e(TAG, "Exception: " + ex.getMessage());
-            }
-        }
-        return 0;
-    }
+		} catch(Exception ex) {
+			if(ex !=null) {
+				Log.e(TAG, "Exception: " + ex.getMessage());
+			}
+		}
+		return 0;
+	}
 
 	private void setState(int state) {
 		this.mState = state;
