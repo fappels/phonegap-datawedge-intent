@@ -150,7 +150,11 @@ public class BroadcastIntentPlugin extends CordovaPlugin {
 					IntentFilter filter = new IntentFilter();
 					filter.addCategory(Intent.CATEGORY_DEFAULT);
 					filter.addAction(MY_ACTION);
-					cordova.getActivity().registerReceiver(myBroadcastReceiver, filter);
+					if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+						cordova.getActivity().registerReceiver(myBroadcastReceiver, filter, Context.RECEIVER_EXPORTED);
+					} else {
+						cordova.getActivity().registerReceiver(myBroadcastReceiver, filter);
+					}
 					this.bCodeScanReceiverRegistered = true;
 					if (D) Log.d(TAG, "BroadcastIntentPlugin.execute: receiver for action=" + MY_ACTION + " registred!");
 				}
